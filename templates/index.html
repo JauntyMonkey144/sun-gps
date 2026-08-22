@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Chấm công GPS</title>
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+  <link rel="icon" href="{{ url_for('static', filename='favicon-32x32.png') }}" type="image/png">
+  <style>
+    body { font-family: Arial, sans-serif; background: #f4f6f9; margin: 0; }
+    header { padding: 10px 30px; background: #fff; border-bottom: 1px solid #ddd;
+             display:flex; justify-content:space-between; align-items:center; }
+    .header-title { font-size: 1.5rem; font-weight: bold; color: #333; }
+    footer { margin-top: 40px; padding: 15px; background: #f5f5f5; text-align: center; color: #666; }
+    .flex-container { display: flex; gap: 30px; padding:20px; flex-wrap: wrap; }
+    .container { flex: 1; min-width: 320px; }
+    .map-container { flex: 1; min-width: 320px; }
+    #map { height: 400px; width: 100%; margin-top: 20px; display: none; border: 1px solid #ccc; border-radius: 8px; }
+    #confirmBox { display: none; margin-top: 15px; padding: 15px; border: 1px solid #ddd;
+                  border-radius: 8px; background: #fafafa; }
+    #confirmBox button { margin-right: 10px; padding: 8px 16px; border: none; border-radius: 5px; cursor: pointer; }
+    #confirmBtn { background: #28a745; color: white; }
+    #cancelBtn { background: #dc3545; color: white; }
+    #captureBtn { background: #007bff; color: white; }
+    #retakeBtn { background: orange; color: white; display:none; }
+    #cameraBox { margin-top: 10px; max-width: 400px; }
+    video, img, canvas { margin-top: 10px; border: 1px solid #ccc; border-radius: 5px;
+                         max-width: 100%; height: auto; display: block; }
+    #video { transform: scaleX(-1); } /* Flip video feed horizontally */
+    #preview { display:none; object-fit: cover; }
+    input[type="number"],
+    input[type="text"],
+    input[type="date"],
+    textarea {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      font-size: 14px;
+      box-sizing: border-box;
+    }
+    #status { margin-top:10px; font-weight: bold; }
+    #leaveReasonBox, #taskBox {
+      margin-top: 10px;
+      padding: 10px;
+      background: #e7f3ff;
+      border-radius: 5px;
+    }
+    #leaveReasonBox label { font-weight: bold; color: #007bff; }
+    #leaveTypeBox { margin-top: 10px; }
+    #singleDaySection { display: none; }
+    #multiDaySection { display: none; }
+    #checkInOutBox {
+      display: none;
+      margin-bottom: 10px;
+      align-items: center;
+      gap: 15px;
+    }
+    /* --- Phương án 2: Màu Xám Trung Tính (Gray) --- */
+    .action-btn {
+        flex: 1;
+        padding: 12px;
+        font-size: 1rem;
+        font-weight: bold;
+        border-radius: 5px;
+        cursor: pointer;
+        transition: all 0.2s ease-in-out;
+        color: #6c757d;             /* Màu chữ Xám đậm */
+        background-color: #ffffff;   /* Nền trắng */
+        border: 2px solid #6c757d;   /* Viền Xám đậm */
+    }
+
+    .action-btn:hover, .action-btn.selected {
+        background-color: #6c757d;   /* Nền Xám đậm khi hover/chọn */
+        color: white;
+    }
+    .action-btn.selected {
+        font-weight: bold;
+        background-color: #007bff;
+        color: white;
+        border: 2px solid #0056b3;
+    }
+    .action-btn:disabled {
+        cursor: not-allowed;
+        opacity: 0.8;
+    }
+    /* Nút chuyển ngôn ngữ VI/EN (giao diện tối giản) */
+    .lang-switch { display: inline-flex; gap: 6px; }
+    .lang-switch button { width: auto; padding: 4px 12px; margin: 0; cursor: pointer;
+        border: 1px solid #007bff; background: #fff; color: #007bff; border-radius: 4px;
+        font-weight: bold; font-size: 0.85rem; line-height: 1.2; }
+    .lang-switch button.active { background: #007bff; color: #fff; }
+    #empCount { margin-top: 6px; font-weight: bold; color: #333; }
+  </style>
+</head>
+<body>
+  <header>
+    <span class="header-title">Sun Automation</span>
+    <span class="lang-switch" id="langSwitch">
+      <button type="button" data-lang="vi">VI</button>
+      <button type="button" data-lang="en">EN</button>
+    </span>
+  </header>
+  <div class="flex-container">
+    <div class="container">
+      <h2 id="formTitle" data-i18n="title_checkin">Chấm công</h2>
+      <form id="checkinForm">
+        <label for="empId" data-i18n="emp_id_label">Mã nhân viên:</label>
+        <input type="text" id="empId" required placeholder="Nhập mã nhân viên" data-i18n-ph="emp_id_ph">
+        <div style="margin-top:10px;">
+          <label><input type="radio" name="type" value="checkin" checked> <span data-i18n="opt_checkin">Chấm công</span></label>
+          <label><input type="radio" name="type" value="leave"> <span data-i18n="opt_leave">Xin nghỉ phép</span></label>
+        </div>
+        <button type="submit" data-i18n="btn_continue">Tiếp tục</button>
+      </form>
+      <p id="status"></p>
+      <div id="confirmBox">
+        <div id="checkInOutBox">
+            <button type="button" id="startCheckinBtn" class="action-btn" data-i18n="btn_check_in">Check In</button>
+            <button type="button" id="startCheckoutBtn" class="action-btn" data-i18n="btn_check_out">Check Out</button>
+        </div>
+        <p id="empInfo"></p>
+        <p id="empCount"></p>
+        <p id="addrInfo"></p>
+        <div id="checkinSection" style="display:none;">
+          <div style="margin-top:10px;">
+            <label><b>📝 <span data-i18n="project_id">ID dự án:</span></b></label>
+            <input type="number" id="projectId" placeholder="Nhập mã dự án..." data-i18n-ph="project_id_ph">
+          </div>
+          <div id="taskBox">
+            <label><b>📌 <span data-i18n="tasks_label">Công việc:</span></b></label><br>
+            <label><input type="checkbox" class="taskCheck" value="Đi gặp khách hàng"> <span data-i18n="task_meet">Đi gặp khách hàng</span></label><br>
+            <label><input type="checkbox" class="taskCheck" value="Khảo sát"> <span data-i18n="task_survey">Khảo sát</span></label><br>
+            <label><input type="checkbox" class="taskCheck" value="Báo giá"> <span data-i18n="task_quote">Báo giá</span></label><br>
+            <label><input type="checkbox" class="taskCheck" value="Thi công"> <span data-i18n="task_install">Thi công</span></label><br>
+            <label><input type="checkbox" class="taskCheck" value="Nghiệm thu"> <span data-i18n="task_accept">Nghiệm thu</span></label><br>
+            <label><input type="checkbox" class="taskCheck" value="Bảo trì"> <span data-i18n="task_maintain">Bảo trì</span></label><br>
+            <label><input type="checkbox" class="taskCheck" value="Office"> <span data-i18n="task_office">Office</span></label><br>
+            <label><input type="checkbox" class="taskCheck" value="Giao hàng"> <span data-i18n="task_delivery">Giao hàng</span></label><br>
+            <label><input type="checkbox" id="otherTaskCheck"> <span data-i18n="task_other">Khác:</span></label>
+            <input type="text" id="otherTaskInput" placeholder="Nhập công việc khác..." data-i18n-ph="task_other_ph" style="display:none; margin-top:5px; width: 95%; margin-left: 5%;">
+          </div>
+          <div style="margin-top:10px;">
+            <label for="checkinNote"><b>📋 <span data-i18n="note_label">Ghi chú:</span></b></label>
+            <textarea id="checkinNote" rows="5" placeholder="Thêm ghi chú cho lần chấm công..." data-i18n-ph="note_checkin_ph"></textarea>
+          </div>
+          <div id="cameraBox">
+            <video id="video" autoplay playsinline></video>
+            <canvas id="canvas" style="display:none;"></canvas>
+            <img id="preview" />
+          </div>
+          <div>
+            <button id="captureBtn" data-i18n="btn_capture">📷 Chụp ảnh</button>
+            <button id="retakeBtn" data-i18n="btn_retake">🔄 Chụp lại</button>
+          </div>
+        </div>
+        <div id="leaveSection" style="display:none;">
+          <div id="leaveTypeBox">
+            <label><b>📅 <span data-i18n="leave_type">Loại nghỉ phép:</span></b></label><br>
+            <label><input type="radio" name="leaveType" value="single" checked> <span data-i18n="leave_single">Nghỉ 1 ngày</span></label><br>
+            <label><input type="radio" name="leaveType" value="multi"> <span data-i18n="leave_multi">Nghỉ nhiều ngày</span></label>
+          </div>
+          <div id="singleDaySection">
+            <div style="margin-top:10px;">
+              <label><b>📅 <span data-i18n="leave_date">Ngày nghỉ:</span></b></label>
+              <input type="date" id="leaveDate" required>
+            </div>
+            <div style="margin-top:10px;">
+              <label><b>🕒 <span data-i18n="session_label">Buổi:</span></b></label><br>
+              <label><input type="radio" name="session" value="Sáng"> <span data-i18n="session_morning">Sáng</span></label><br>
+              <label><input type="radio" name="session" value="Chiều"> <span data-i18n="session_afternoon">Chiều</span></label><br>
+              <label><input type="radio" name="session" value="Cả ngày" checked> <span data-i18n="session_full">Cả ngày</span></label>
+            </div>
+          </div>
+          <div id="multiDaySection">
+            <div style="margin-top:10px;">
+              <label><b>📅 <span data-i18n="from_date">Từ ngày:</span></b></label>
+              <input type="date" id="startDate">
+            </div>
+            <div style="margin-top:10px;">
+              <label><b>📅 <span data-i18n="to_date">Đến ngày:</span></b></label>
+              <input type="date" id="endDate">
+            </div>
+          </div>
+          <div id="leaveReasonBox">
+            <label><b>📝 <span data-i18n="leave_reason">Lý do nghỉ phép:</span></b></label><br>
+            <label><input type="radio" name="leaveReasonRadio" value="Sức khoẻ"> <span data-i18n="reason_health">Lý do sức khoẻ</span></label><br>
+            <label><input type="radio" name="leaveReasonRadio" value="Việc cá nhân"> <span data-i18n="reason_personal">Việc cá nhân</span></label><br>
+            <label>
+              <input type="radio" name="leaveReasonRadio" value="Khác" id="otherReasonRadio"> <span data-i18n="reason_other">Lý do khác:</span>
+            </label>
+            <input type="text" id="otherReasonInput" placeholder="Nhập lý do khác..." data-i18n-ph="reason_other_ph" style="display:none; margin-top:5px;">
+          </div>
+          <div style="margin-top:10px;">
+              <label for="leaveNote"><b>📋 <span data-i18n="note_label">Ghi chú:</span></b></label>
+              <textarea id="leaveNote" rows="5" placeholder="Thêm ghi chú cho đơn nghỉ phép..." data-i18n-ph="note_leave_ph"></textarea>
+          </div>
+        </div>
+        <div style="margin-top:10px;">
+          <button id="confirmBtn" data-i18n="btn_confirm">✅ Xác nhận</button>
+          <button id="cancelBtn" data-i18n="btn_cancel">❌ Hủy</button>
+        </div>
+      </div>
+    </div>
+    <div class="map-container"><div id="map"></div></div>
+  </div>
+  <footer>&copy; 2025 Sun Automation - Ứng dụng điểm danh GPS + FaceID</footer>
+  <script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+  <script type="module">
+  // Import the functions you need from the SDKs you need
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-app.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-analytics.js";
+  // *** THÊM IMPORT MESSAGING ***
+  import { getMessaging, getToken } from "https://www.gstatic.com/firebasejs/12.5.0/firebase-messaging.js";
+
+  // Your web app's Firebase configuration
+  const firebaseConfig = {{ firebase_config | safe }};
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+
+  // *** KHỞI TẠO MESSAGING ***
+  const messaging = getMessaging(app);
+
+  // *** DÁN VAPID KEY CỦA BẠN VÀO ĐÂY ***
+  // (Lấy từ Firebase Console > Project Settings > Cloud Messaging > Web Push certificates)
+  const VAPID_KEY = "{{ vapid_key }}";
+
+  // *** HÀM MỚI: GỬI TOKEN VỀ SERVER ***
+  async function saveTokenToDb(empId, token) {
+      try {
+          await fetch("/api/register-token", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ EmployeeId: empId, token: token })
+          });
+          console.log("FCM Token registered for " + empId);
+      } catch (err) {
+          console.error("Error saving token to DB:", err);
+      }
+  }
+
+  // *** HÀM MỚI: YÊU CẦU QUYỀN VÀ LẤY TOKEN ***
+  // Làm cho hàm này global để script cũ có thể gọi
+window.initFirebaseMessaging = async (empId) => {
+      console.log("Requesting notification permission...");
+      try {
+          const permission = await Notification.requestPermission();
+          if (permission === "granted") {
+              console.log("Notification permission granted.");
+              const currentToken = await getToken(messaging, {
+                  vapidKey: VAPID_KEY,
+              });
+              // *** ĐẢM BẢO BẠN CÓ KHỐI KIỂM TRA NÀY ***
+              if (currentToken) {
+                  console.log("FCM Token:", currentToken);
+                  // Chỉ gửi về server NẾU token tồn tại
+                  await saveTokenToDb(empId, currentToken);
+              } else {
+                  // Nếu token là null, chỉ log ra và không làm gì cả
+                  console.log("Không lấy được token. (Bị chặn bởi Tracking Prevention). Sẽ không gửi về server.");
+              }
+          } else {
+              console.log("Unable to get permission to notify.");
+          }
+      } catch (err) {
+          console.error("An error occurred while retrieving token. ", err);
+      }
+  };
+
+  // Tự gọi hàm init để gán nó vào window
+
+  // Đăng ký service worker (đặt ở đây để nó chạy ngay khi script load)
+  if ('serviceWorker' in navigator) {
+    // SỬA ĐƯỜNG DẪN: trỏ đến file trong thư mục /static/
+    navigator.serviceWorker.register('/firebase-messaging-sw.js')
+      .then((registration) => {
+        console.log('Service Worker registered with scope:', registration.scope);
+      }).catch((err) => {
+        console.log('Service Worker registration failed:', err);
+      });
+  }
+
+  </script>
+  <script src="{{ url_for('static', filename='script.js') }}"></script>
+  </body>
+  </html>

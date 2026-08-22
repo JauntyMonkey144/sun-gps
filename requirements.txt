@@ -1,0 +1,11 @@
+Flask
+Flask-Cors
+pymongo
+gunicorn
+requests
+pandas
+Pillow
+werkzeug
+python-dotenv
+firebase-admin>=6.0.0
+APScheduler

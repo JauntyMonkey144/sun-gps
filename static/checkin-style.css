@@ -1,0 +1,59 @@
+body {
+    font-family: 'Segoe UI', Arial, sans-serif;
+    background: linear-gradient(135deg, #f0f4f8, #e8ecf1);
+    margin: 0;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.container {
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    padding: 40px 50px;
+    max-width: 500px;
+    text-align: center;
+    animation: fadeIn 0.8s ease;
+}
+
+.icon {
+    font-size: 60px;
+    margin-bottom: 10px;
+}
+
+h2 {
+    margin-bottom: 10px;
+    font-size: 24px;
+}
+
+h2.success { color: #4CAF50; }
+h2.rejected { color: #f44336; }
+h2.invalid { color: #ff9800; }
+
+p {
+    color: #333;
+    font-size: 16px;
+    margin: 8px 0;
+}
+
+.note-box {
+    background: #f9f9f9;
+    border-left: 4px solid #2196F3;
+    padding: 10px;
+    margin-top: 15px;
+    border-radius: 8px;
+    font-style: italic;
+}
+
+.footer {
+    margin-top: 25px;
+    font-size: 13px;
+    color: #888;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(20px); }
+    to { opacity: 1; transform: translateY(0); }
+}

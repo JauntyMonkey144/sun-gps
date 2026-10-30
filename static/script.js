@@ -11,7 +11,7 @@ let cameraStream = null; // Biến để quản lý luồng camera
 // ============================================================
 const I18N = {
   vi: {
-    title_checkin: "Chấm công", title_leave: "Tạo đơn xin nghỉ",
+    app_subtitle: "Chấm công GPS", title_checkin: "Chấm công", title_leave: "Tạo đơn xin nghỉ",
     emp_id_label: "Mã nhân viên:", emp_id_ph: "Nhập mã nhân viên",
     opt_checkin: "Chấm công", opt_leave: "Xin nghỉ phép", btn_continue: "Tiếp tục",
     btn_check_in: "Check In", btn_check_out: "Check Out",
@@ -38,7 +38,7 @@ const I18N = {
     addr_prefix: "📍 Vị trí: "
   },
   en: {
-    title_checkin: "Check-in", title_leave: "Leave request",
+    app_subtitle: "GPS attendance", title_checkin: "Check-in", title_leave: "Leave request",
     emp_id_label: "Employee ID:", emp_id_ph: "Enter employee ID",
     opt_checkin: "Check-in", opt_leave: "Request leave", btn_continue: "Continue",
     btn_check_in: "Check In", btn_check_out: "Check Out",
